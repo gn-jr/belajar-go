@@ -136,6 +136,6 @@ func main() {
 	http.HandleFunc("/hapus", hapusProduk)
 	http.HandleFunc("/update", updateProduk)
 
-	fmt.Println("Server kasir berjalan di http://localhost:8080")
+	fmt.Println("Server kasir berjalan di port:8080")
 	http.ListenAndServe(":8080", nil)
 }
