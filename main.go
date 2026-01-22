@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -130,12 +131,17 @@ func updateProduk(w http.ResponseWriter, r *http.Request) {
 
 // Jalankan server
 func main() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	http.HandleFunc("/produk", ambilProduk)
 	http.HandleFunc("/produk/", ambilDetailProduk)
 	http.HandleFunc("/tambah", tambahProduk)
 	http.HandleFunc("/hapus", hapusProduk)
 	http.HandleFunc("/update", updateProduk)
 
-	fmt.Println("Server kasir berjalan di port:8080")
-	http.ListenAndServe(":8080", nil)
+	fmt.Println("Server kasir berjalan di port:", port)
+	http.ListenAndServe(":"+port, nil)
 }
