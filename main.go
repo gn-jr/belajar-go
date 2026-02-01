@@ -1,29 +1,26 @@
 package main
 
 import (
+	"belajar-go/database"
+	"belajar-go/models"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
-// Definisi data produk
-type Produk struct {
-	ID    int    `json:"id"`
-	Nama  string `json:"nama"`
-	Harga int    `json:"harga"`
-	Stok  int    `json:"stok"`
-}
-
-// Inisialisasi data produk
-var produk = []Produk{
-	{ID: 1, Nama: "Beras Merah 5kg", Harga: 65000, Stok: 25},
-	{ID: 2, Nama: "Gula Pasir 1kg", Harga: 15000, Stok: 20},
-	{ID: 3, Nama: "Minyak Goreng 1L", Harga: 17000, Stok: 30},
-	{ID: 4, Nama: "Telur Ayam 1kg", Harga: 32000, Stok: 25},
-	{ID: 5, Nama: "Tepung Terigu 1kg", Harga: 12000, Stok: 20},
+// Handler untuk health check
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]string{
+		"status":  "OK",
+		"message": "Cashier API is running",
+	}
+	json.NewEncoder(w).Encode(response)
 }
 
 // Fungsi untuk mengambil data produk
@@ -34,7 +31,7 @@ func ambilProduk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(produk)
+	json.NewEncoder(w).Encode(Product)
 }
 
 // Fungsi untuk mengambil data detail produk berdasarkan ID
@@ -67,7 +64,7 @@ func tambahProduk(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Hanya POST yang diizinkan", http.StatusMethodNotAllowed)
 		return
 	}
-	var produkBaru Produk
+	var produkBaru models.Product
 	if err := json.NewDecoder(r.Body).Decode(&produkBaru); err != nil {
 		http.Error(w, "Body request tidak valid", http.StatusBadRequest)
 		return
@@ -113,7 +110,7 @@ func updateProduk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var produkUpdate Produk
+	var produkUpdate models.Product
 	json.NewDecoder(r.Body).Decode(&produkUpdate)
 
 	for i, p := range produk {
@@ -121,7 +118,7 @@ func updateProduk(w http.ResponseWriter, r *http.Request) {
 			produk[i] = produkUpdate
 			w.WriteHeader(http.StatusOK)
 
-			fmt.Println("Produk ID %d berhasil diupdate", p.ID)
+			fmt.Println("Produk ID", p.ID, "berhasil diupdate")
 			json.NewEncoder(w).Encode(produkUpdate)
 			return
 		}
@@ -129,19 +126,44 @@ func updateProduk(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Produk tidak ditemukan", http.StatusMethodNotAllowed)
 }
 
+type Config struct {
+	Port   string `mapstructure:"PORT"`
+	DBConn string `mapstructure:"DB_CONN"`
+}
+
 // Jalankan server
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	if _, err := os.Stat(".env"); err == nil {
+		viper.SetConfigFile(".env")
+		_ = viper.ReadInConfig()
 	}
+
+	config := Config{
+		Port:   viper.GetString("PORT"),
+		DBConn: viper.GetString("DB_CONN"),
+	}
+
+	db, err := database.InitDB(config.DBConn)
+	if err != nil {
+		fmt.Println("Gagal terhubung ke database:", err)
+		return
+	}
+	defer db.Close()
 
 	http.HandleFunc("/produk", ambilProduk)
 	http.HandleFunc("/produk/", ambilDetailProduk)
 	http.HandleFunc("/tambah", tambahProduk)
 	http.HandleFunc("/hapus", hapusProduk)
 	http.HandleFunc("/update", updateProduk)
+	http.HandleFunc("/health", healthHandler)
 
-	fmt.Println("Server kasir berjalan di port:", port)
-	http.ListenAndServe(":"+port, nil)
+	fmt.Println("Server kasir berjalan di localhost:" + config.Port)
+
+	err = http.ListenAndServe(":"+config.Port, nil)
+	if err != nil {
+		fmt.Println("Gagal menjalankan server")
+	}
 }
