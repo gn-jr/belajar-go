@@ -9,9 +9,18 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"belajar-go/repositories"
+	"belajar-go/services"
+	"belajar-go/handlers"
 
 	"github.com/spf13/viper"
 )
+var produk = []models.Product{
+	{ID: 1, Name: "Produk A", Price: 10000, Stock: 50},
+	{ID: 2, Name: "Produk B", Price: 20000, Stock: 30},
+	{ID: 3, Name: "Produk C", Price: 15000, Stock: 20},
+}
+
 
 // Handler untuk health check
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +40,7 @@ func ambilProduk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Product)
+	json.NewEncoder(w).Encode(produk)
 }
 
 // Fungsi untuk mengambil data detail produk berdasarkan ID
@@ -152,6 +161,14 @@ func main() {
 		return
 	}
 	defer db.Close()
+
+	productRepo := repositories.NewProductRepository(db)
+	productService := services.NewProductService(productRepo)
+	productHandler := handlers.NewProductHandler(productService)
+
+	// Routing
+	http.HandleFunc("/api/produk", productHandler.HandleProducts)
+
 
 	http.HandleFunc("/produk", ambilProduk)
 	http.HandleFunc("/produk/", ambilDetailProduk)
